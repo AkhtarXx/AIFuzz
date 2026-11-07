@@ -31,12 +31,17 @@ jobs:
             --workdir "$HOME/.aifuzz/agent" \
             --crash-timeout 20
 
+      - name: stage reports
+        if: always()
+        run: |
+          mkdir -p reports
+          cp "$HOME/.aifuzz/work/report.json" reports/validator-report.json 2>/dev/null || true
+          cp "$HOME/.aifuzz/agent/hcheck-report.json" reports/agent-report.json 2>/dev/null || true
+
       - name: upload reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: aifuzz-reports
-          path: |
-            ~/.aifuzz/work/report.json
-            ~/.aifuzz/agent/hcheck-report.json
+          path: reports/
           if-no-files-found: ignore
