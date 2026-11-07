@@ -394,3 +394,33 @@ harness generation, three engines, fail-closed gates, reproducible env). The "st
 *system*" claim still waits on Phase 2 (orchestration at ClusterFuzzLite scale) and on real
 bug finds — but every prerequisite for both is now built and green.
 
+---
+
+# Phase 2 (Nov 2026) — ensemble campaigns + orchestrator, first long run
+
+`tools/campaign.py` runs multi-engine ensemble campaigns: engines fuzz **in parallel** against
+a shared corpus (libFuzzer owns it; a sync thread merges AFL++ queue + honggfuzz outputs
+back in, hash-deduped), a sampler thread records reached-functions every N minutes
+(`llvm-cov` time-series), crashes from all engines go through the full lifecycle
+(replay, classification, cross-engine stack-hash dedup), and the corpus is minimized
+(`-merge=1`) and persisted so the next run **resumes** it. `tools/orchestrator.py` runs a
+plan across targets with a worker pool and prints an aggregate dashboard.
+
+First orchestrated run (libpng 30min, structure_demo 10min, chunked_format 5min, kv_config
+5min, parallel 2, ~31 min wall):
+
+| target | corpus (min) | coverage | unique bugs |
+|---|---|---|---|
+| libpng_decode | 185 → 944 → **403** | 25.0% → **27.4%** (128 → 140 fns) | 0 (expected — OSS-Fuzz fuzzes libpng 24/7) |
+| structure_demo | 28 | 37.5% | 0 |
+| chunked_format | 82 | 63.2% | 4 |
+| kv_config | 135 | 23.5% | 1 (634 raw crash files → 1) |
+
+Notable: the ensemble surfaced a **new crash manifestation** the validator's crash-hunt
+never hit (`asan-memcpy-param-overlap` from the len=0 size_t underflow in chunked_format) —
+exactly the multi-engine value the research report predicted. Corpus stacking worked
+(libpng resumed 179 inputs from the prior campaign).
+
+Still open in Phase 2: crash triage service (root-cause docs), coverage dashboards with
+history, per-engine instrumented-library builds, and CI integration of nightly campaigns.
+

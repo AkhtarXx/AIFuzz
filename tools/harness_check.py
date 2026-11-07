@@ -789,11 +789,9 @@ def custom_mutator_check(binary, corpus_dir, fuzz, work, sanitizer):
     return {"ok": activated, "early_crash": r["issue"] is not None}
 
 
-def coverage_measure(target_dir, manifest, corpus_dir, work, engines):
-    fuzz = manifest["fuzz"]
+def build_coverage_binary(target_dir, manifest, build_dir, engines):
     if not engines.get("libfuzzer"):
-        return {"skipped": "libFuzzer toolchain unavailable"}
-    build_dir = work / "build-coverage"
+        return None, "libFuzzer toolchain unavailable"
     fresh_dir(build_dir)
     cc = engines["libfuzzer"]["cc"]
     common = ["-g", "-O1", "-fno-omit-frame-pointer", "-I" + str(INCLUDE_DIR)]
@@ -804,25 +802,37 @@ def coverage_measure(target_dir, manifest, corpus_dir, work, engines):
         obj = build_dir / (Path(src).stem + ".o")
         r = run_gate([cc, "-c", str(target_dir / src), "-o", str(obj)] + common + cov_flags)
         if r.returncode != 0:
-            return {"skipped": "coverage build failed"}
+            return None, "coverage build failed"
         objects.append(str(obj))
     binary = build_dir / "fuzz_target"
     r = run_gate([cc] + objects + cov_flags + ["-fsanitize=fuzzer", "-fsanitize=address"]
                  + expand_flags(list(manifest.get("build", {}).get("ldflags", [])))
                  + ["-o", str(binary)])
     if r.returncode != 0:
-        return {"skipped": "coverage link failed"}
-    files = sorted(p for p in corpus_dir.iterdir() if p.is_file())
+        return None, "coverage link failed"
+    return binary, None
+
+
+def measure_coverage(binary, corpus_dir, build_dir, manifest, batch=400):
+    fuzz = manifest["fuzz"]
+    files = sorted(p for p in Path(corpus_dir).iterdir() if p.is_file())
     if not files:
         return {"skipped": "empty corpus"}
-    profraw = build_dir / "cov.profraw"
-    r = run_gate([str(binary)] + [str(f) for f in files],
-                 env={"LLVM_PROFILE_FILE": str(profraw)},
-                 timeout=fuzz["timeout_sec"] * (len(files) + 5) + 120)
-    if not profraw.is_file():
+    build_dir.mkdir(parents=True, exist_ok=True)
+    for old in build_dir.glob("prof-*.profraw"):
+        old.unlink()
+    prof_pattern = str(build_dir / "prof-%p.profraw")
+    for i in range(0, len(files), batch):
+        part = files[i:i + batch]
+        r = run_gate([str(binary)] + [str(f) for f in part],
+                     env={"LLVM_PROFILE_FILE": prof_pattern},
+                     timeout=fuzz["timeout_sec"] * (len(part) + 5) + 180)
+    profraws = sorted(build_dir.glob("prof-*.profraw"))
+    if not profraws:
         return {"skipped": "no profile written"}
     profdata = build_dir / "cov.profdata"
-    r = run_gate(["llvm-profdata", "merge", "-sparse", str(profraw), "-o", str(profdata)])
+    r = run_gate(["llvm-profdata", "merge", "-sparse"] + [str(p) for p in profraws]
+                 + ["-o", str(profdata)])
     if r.returncode != 0:
         return {"skipped": "profdata merge failed"}
     r = run_gate(["llvm-cov", "export", str(binary), "-instr-profile=" + str(profdata)])
@@ -854,10 +864,18 @@ def coverage_measure(target_dir, manifest, corpus_dir, work, engines):
                             "pct": round(100.0 * reached / total, 1)}
     if bin_total > 0:
         result["all_functions"] = {"reached": bin_reached, "total": bin_total,
-                                  "pct": round(100.0 * bin_reached / bin_total, 1)}
+                                   "pct": round(100.0 * bin_reached / bin_total, 1)}
     if not result:
         return {"skipped": "no functions found"}
     return result
+
+
+def coverage_measure(target_dir, manifest, corpus_dir, work, engines):
+    build_dir = work / "build-coverage"
+    binary, err = build_coverage_binary(target_dir, manifest, build_dir, engines)
+    if binary is None:
+        return {"skipped": err}
+    return measure_coverage(binary, corpus_dir, build_dir, manifest)
 
 
 def validate_target(target_dir, manifest, opts, engines):

@@ -67,9 +67,30 @@ ASan + SanitizerCoverage + profile instrumentation, so the fuzzer gets feedback
 and bug detection *inside* the library and `llvm-cov` reports real reached-functions
 (~500 edges on the seed corpus alone).
 
+## Phase 2: campaigns + orchestration
+
+Long multi-engine ensemble campaigns (ClusterFuzz-style shared corpus, live cross-engine
+corpus sync, periodic coverage sampling, crash aggregation with cross-engine dedup,
+corpus minimization, and stacking across runs):
+
+```
+# single campaign: 30 minutes, all engines in parallel
+wsl -d Ubuntu-26.04 -- bash -lc 'cd ~/AIFuzz && python3 tools/campaign.py --target libpng_decode --duration 30'
+
+# orchestrated plan (worker pool, aggregate dashboard)
+wsl -d Ubuntu-26.04 -- bash -lc 'cd ~/AIFuzz && python3 tools/orchestrator.py --plan specs/campaigns.yaml --parallel 2'
+```
+
+Campaigns live under `~/.aifuzz/campaigns/<target>/<run-id>/` (corpus, minimized corpus,
+crash artifacts with repro commands, engine logs, coverage time-series). Each run resumes
+`latest_corpus` from the previous campaign automatically — fuzzing state compounds.
+First orchestrated run (libpng 30min + 3 targets): coverage 25.0% → 27.4% (128 → 140
+library functions), corpus 185 → 944 → 403 minimized, 8.5M libFuzzer + 2.5M AFL executions,
+crash files deduped to unique bugs per stack hash.
+
 ## Roadmap
 
 Phase 1: harness standard + validator + adversarial review hardening (done)
-Phase 2: orchestration layer — queue, multi-engine campaigns, corpus service
+Phase 2: campaigns + orchestrator (done — triage service and dashboards next)
 Phase 3: AI layer at scale — harness generation on real targets, triage agent
 Phase 4: Windows closed-source targets (WinAFL/Jackalope workers) + distributed scale

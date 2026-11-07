@@ -1,0 +1,13 @@
+parallel: 2
+campaigns:
+  - target: libpng_decode
+    duration_min: 30
+  - target: structure_demo
+    duration_min: 10
+    engines: [libfuzzer]
+  - target: chunked_format
+    duration_min: 5
+    engines: [libfuzzer, aflplusplus, honggfuzz]
+  - target: kv_config
+    duration_min: 5
+    engines: [libfuzzer, aflplusplus, honggfuzz]
