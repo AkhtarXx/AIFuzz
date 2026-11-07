@@ -1,0 +1,11 @@
+# AIFuzz dictionary: kv_config
+name="name="
+mode="mode="
+strict="strict"
+lax="lax"
+repeat="repeat="
+repeat_small="repeat=4"
+repeat_big="repeat=100"
+eq="="
+hash="#"
+semi=";"

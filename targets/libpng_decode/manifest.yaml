@@ -1,0 +1,19 @@
+name: libpng_decode
+description: Real target - full libpng simplified-API decode pipeline against an instrumented libpng16 static build (ASan + SanitizerCoverage + profraw)
+language: c
+sources: [fuzz_target.c]
+build:
+  cflags: [-I$AIFUZZ_LIBPNG16_INC]
+  ldflags: [$AIFUZZ_LIBPNG16_LIB, -lz, -lm]
+fuzz:
+  max_len: 8192
+  timeout_sec: 10
+  dict: dictionary.txt
+  seed_gen: make_seeds.py
+  expected_crash: false
+  rss_limit_mb: 2048
+  malloc_limit_mb: 2048
+  allocator_may_return_null: true
+engines: [libfuzzer, aflplusplus, honggfuzz]
+sanitizers: [address]
+tags: [real-target, image-decoder, instrumented-library]

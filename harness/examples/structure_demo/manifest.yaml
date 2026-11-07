@@ -1,0 +1,13 @@
+name: structure_demo
+description: Record-based format with an LLVMFuzzerCustomMutator (structure-aware mutation demo, clean target)
+language: c
+sources: [fuzz_target.c]
+fuzz:
+  max_len: 512
+  timeout_sec: 10
+  seed_gen: make_seeds.py
+  custom_mutator: true
+  expected_crash: false
+engines: [libfuzzer]
+sanitizers: [address, undefined]
+tags: [example, structure-aware, custom-mutator]

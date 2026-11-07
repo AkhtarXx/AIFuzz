@@ -1,0 +1,16 @@
+name: agent_demo
+description: TLV record parser with magic header AGNT, per-type payload accounting
+language: c
+harness_hint: |
+  Implement LLVMFuzzerTestOneInput for a binary TLV format:
+  - The input must begin with the magic bytes "AGNT" (0x41 0x47 0x4E 0x54); reject otherwise.
+  - After the magic, records follow: type (1 byte), length (uint16 little-endian),
+    then exactly that many payload bytes.
+  - Keep a per-type total of payload bytes (types 0..3). If the sum for type 0x99-style
+    special records exceeds 1000 bytes, set a volatile flag.
+  - Use the "aifuzz/fzdata.h" helpers for all consumption.
+fuzz:
+  max_len: 256
+  expected_crash: false
+engines: [libfuzzer]
+sanitizers: [address]

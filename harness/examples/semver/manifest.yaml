@@ -1,0 +1,12 @@
+name: semver
+description: Semantic version parser and comparator, two versions encoded back to back (clean target, no planted bug)
+language: c
+sources: [fuzz_target.c]
+fuzz:
+  max_len: 64
+  timeout_sec: 10
+  seeds: seeds
+  expected_crash: false
+engines: [libfuzzer, aflplusplus, honggfuzz]
+sanitizers: [address, undefined]
+tags: [example, text-format, clean]

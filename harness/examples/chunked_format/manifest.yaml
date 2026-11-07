@@ -1,0 +1,13 @@
+name: chunked_format
+description: Chunked binary format parser with magic header barrier and a planted stack overflow (pipeline self-test target)
+language: c
+sources: [fuzz_target.c]
+fuzz:
+  max_len: 512
+  timeout_sec: 10
+  dict: dictionary.txt
+  seed_gen: make_seeds.py
+  expected_crash: true
+engines: [libfuzzer, aflplusplus, honggfuzz]
+sanitizers: [address]
+tags: [example, binary-format, magic-header, planted-bug]

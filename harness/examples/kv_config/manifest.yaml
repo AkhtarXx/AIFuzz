@@ -1,0 +1,13 @@
+name: kv_config
+description: Line-based key=value config parser with a planted heap overflow in the repeat directive (text-format pipeline self-test target)
+language: c
+sources: [fuzz_target.c]
+fuzz:
+  max_len: 256
+  timeout_sec: 10
+  dict: dictionary.txt
+  seeds: seeds
+  expected_crash: true
+engines: [libfuzzer, aflplusplus, honggfuzz]
+sanitizers: [address]
+tags: [example, text-format, planted-bug]

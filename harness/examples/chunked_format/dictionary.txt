@@ -1,0 +1,9 @@
+# AIFuzz dictionary: chunked_format
+magic="\x41\x49\x46\x5A"
+version="\x01"
+meta="\x01"
+text="\x02"
+special="\x42"
+bee="\xEF\xBE\xAD\xDE"
+hi="HI"
+bug="BUG"

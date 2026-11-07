@@ -1,0 +1,42 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: toolchain + instrumented libraries
+        run: |
+          export AIFUZZ_BUILD_HONGGFUZZ=1
+          bash scripts/setup_wsl.sh
+
+      - name: validator unit tests
+        run: python3 -m pytest tests -q
+
+      - name: harness validation (examples + real targets, all engines)
+        run: python3 tools/harness_check.py --crash-timeout 30 --smoke-box 20
+
+      - name: harness agent loop (stub LLM repair proof)
+        run: |
+          rm -f /tmp/aifuzz_agent_stub_count
+          python3 tools/harness_agent.py \
+            --spec specs/agent_demo.yaml \
+            --llm-command 'sh tools/agent_fixtures/stub_llm.sh' \
+            --workdir "$HOME/.aifuzz/agent" \
+            --crash-timeout 20
+
+      - name: upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aifuzz-reports
+          path: |
+            ~/.aifuzz/work/report.json
+            ~/.aifuzz/agent/hcheck-report.json
+          if-no-files-found: ignore
